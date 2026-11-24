@@ -1,7 +1,4 @@
-"""Shop logic, kept free of the web framework so it is easy to read and test.
-
-The planted bugs are marked with `bugs.active(n)` so each one can be switched off.
-"""
+"""Shop logic, kept free of the web framework so it is easy to read and test."""
 
 from __future__ import annotations
 
@@ -12,7 +9,6 @@ import threading
 import time
 from dataclasses import asdict, dataclass, field
 
-from shop import bugs
 
 
 class ShopError(Exception):
@@ -42,8 +38,7 @@ class Conflict(ShopError):
 # Test accounts for this demo only. anna and bob are the suite's users. The personas share
 # one password and each brings a quirk, like the users of a classic practice shop:
 # locked (cannot sign in), problem (broken UI), slow (slow sign-in), error (actions fail),
-# visual (layout glitches). The quirks only appear when you sign in as that persona, so the
-# suite's planted bugs stay exactly the same.
+# visual (layout glitches). The quirks only appear when you sign in as that persona.
 PERSONA_PASSWORD = "mosaic-pass"
 PERSONAS = ["standard", "locked", "problem", "slow", "error", "visual"]
 USERS = {"anna": "anna-pass", "bob": "bob-pass", **{p: PERSONA_PASSWORD for p in PERSONAS}}
@@ -66,7 +61,6 @@ _BY_ID = {p["id"]: p for p in PRODUCTS}
 
 DISCOUNTS = {"MOSAIC10": 0.10, "TILE25": 0.25}
 # Share of the paid amount refunded on cancel, per discount code.
-# Planted bug 1: the keys are lowercase but orders store codes in uppercase.
 REFUND_RULES = {"mosaic10": 1.0, "tile25": 1.0}
 
 
@@ -116,7 +110,7 @@ class Store:
         return PRODUCTS
 
     def recommendations(self) -> list[dict]:
-        # A slow, uneven dependency: the source of the demo's flaky test.
+        # Stands in for the recommendations service, which answers in its own time.
         time.sleep(random.uniform(0.0, 1.2))
         return random.sample(PRODUCTS, 3)
 
@@ -136,10 +130,10 @@ class Store:
             lines.append({"product_id": product["id"], "name": product["name"],
                           "qty": qty, "price": product["price"]})
             subtotal += product["price"] * qty
-        code = discount_code.strip().upper() if discount_code else None
-        if code and code not in DISCOUNTS:
+        code = discount_code.strip() if discount_code else None
+        if code and code.upper() not in DISCOUNTS:
             raise BadRequest(f"unknown discount code {discount_code}")
-        total = round(subtotal * (1 - DISCOUNTS[code])) if code else subtotal
+        total = round(subtotal * (1 - DISCOUNTS[code.upper()])) if code else subtotal
         if ship_to is not None:
             missing = [k for k in ("first_name", "last_name", "postal_code")
                        if not str(ship_to.get(k, "")).strip()]
@@ -159,32 +153,20 @@ class Store:
         return order
 
     def get_order(self, user: str, order_id: int) -> Order:
-        if bugs.active(3):
-            # Planted bug 3: no owner check, any user can read any order.
-            order = self.orders.get(order_id)
-            if order is None:
-                raise NotFound(f"order {order_id} not found")
-            return order
-        return self._owned(user, order_id)
+        order = self.orders[order_id]
+        if order.owner != user:
+            raise NotFound(f"order {order_id} not found")
+        return order
 
     def my_orders(self, user: str) -> list[Order]:
-        return [o for o in self.orders.values() if o.owner == user]
+        return [o for o in self.orders.values() if o.owner == user and o.status != "cancelled"]
 
     def pay(self, user: str, order_id: int) -> Order:
         order = self._owned(user, order_id)
-        if bugs.active(4):
-            # Planted bug 4: check-then-act without a lock. Two parallel requests both
-            # see "created" before either marks the order paid, so both charge.
-            if order.status != "created":
-                raise Conflict(f"order {order_id} is {order.status}")
-            time.sleep(0.05)  # the payment provider call
-            self.charges.append({"order_id": order.id, "amount": order.total})
-            order.status = "paid"
-            return order
         with self._lock:
             if order.status != "created":
                 raise Conflict(f"order {order_id} is {order.status}")
-            time.sleep(0.05)
+            time.sleep(0.05)  # the payment provider call
             self.charges.append({"order_id": order.id, "amount": order.total})
             order.status = "paid"
         return order
@@ -201,26 +183,11 @@ class Store:
         if order.status == "cancelled":
             raise Conflict(f"order {order_id} is already cancelled")
         was = order.status
-        if bugs.active(5):
-            # Planted bug 5: the status changes before the rule is checked, so a rejected
-            # cancel still cancels the order.
-            order.status = "cancelled"
-            if was == "shipped":
-                raise Conflict("shipped orders cannot be cancelled")
-        else:
-            if was == "shipped":
-                raise Conflict("shipped orders cannot be cancelled")
-            order.status = "cancelled"
-
+        if was == "shipped":
+            raise Conflict("shipped orders cannot be cancelled")
+        order.status = "cancelled"
         if was == "paid":
-            if order.discount_code:
-                if bugs.active(1):
-                    # Planted bug 1: KeyError -> 500 for every discounted order.
-                    share = REFUND_RULES[order.discount_code]
-                else:
-                    share = REFUND_RULES[order.discount_code.lower()]
-            else:
-                share = 1.0
+            share = REFUND_RULES[order.discount_code.lower()] if order.discount_code else 1.0
             order.refunded = round(order.total * share)
         return order
 

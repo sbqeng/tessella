@@ -446,16 +446,17 @@
         if (quirk("error")) { console.error("Failed to remove item from cart."); toast("Sorry, that item could not be removed.", "error"); return; }
         const id = +rem.dataset.remove, had = state.cart.get(id) || 1;
         setCart(id, 0); rerender();
-        toast(`${state.byId[id].name} removed from your cart.`, "ok", () => { setCart(id, had); route(); });
+        toast(`${state.byId[id].name} removed from your cart.`, "ok", () => { state.cart.set(id, had); store.set("mm-cart-" + state.user, [...state.cart]); route(); });
       }
     });
   }
   function sorted() {
     const q = state.query.trim().toLowerCase();
-    const list = state.products.filter((p) => !q || p.name.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q));
+    const list = state.products.filter((p) => !q || p.name.toLowerCase().includes(q));
     if (quirk("problem")) return list;  // problem user: sorting does nothing
     const by = { az: (a, b) => a.name.localeCompare(b.name), za: (a, b) => b.name.localeCompare(a.name),
-                 lohi: (a, b) => a.price - b.price, hilo: (a, b) => b.price - a.price }[state.sort];
+                 lohi: (a, b) => money(shownPrice(a)).localeCompare(money(shownPrice(b))),
+                 hilo: (a, b) => money(shownPrice(b)).localeCompare(money(shownPrice(a))) }[state.sort];
     return list.sort(by);
   }
 
@@ -491,7 +492,8 @@
     draw();
     bindCartButtons(grid, draw);
     v.querySelector("#sort").addEventListener("change", (e) => { state.sort = e.target.value; store.set("mm-sort", state.sort); draw(); });
-    v.querySelector("#search").addEventListener("input", (e) => { state.query = e.target.value; draw(); });
+    let typing;
+    v.querySelector("#search").addEventListener("input", (e) => { state.query = e.target.value; clearTimeout(typing); typing = setTimeout(draw, 100 + Math.random() * 400); });
     grid.addEventListener("click", (e) => { if (e.target.id === "clear-search") { state.query = ""; v.querySelector("#search").value = ""; draw(); v.querySelector("#search").focus(); } });
     loadPicks(v.querySelector("#picks"));
   }
@@ -499,7 +501,7 @@
   async function loadPicks(row) {
     row.innerHTML = Array.from({ length: 3 }, () => `<div class="pick loading"><span class="chip"></span><span class="ph"></span></div>`).join("");
     try {
-      const picks = await api("/api/recommendations");
+      const picks = await Promise.race([api("/api/recommendations"), new Promise((_, no) => setTimeout(() => no(new Error("timeout")), 900))]);
       row.innerHTML = picks.map((p) => `<a class="pick" href="#/product/${p.id}"><span class="chip" style="background:${art(p)}"></span><span><b>${esc(p.name)}</b><br><span class="per">${money(shownPrice(p))} a sheet</span></span></a>`).join("");
     } catch { row.innerHTML = `<p class="per">Recommendations are not available right now.</p>`; }
   }
@@ -645,7 +647,7 @@
   function viewComplete(id) {
     show(`${steps(3)}<div class="done-card" data-testid="complete">
         <div class="tick" aria-hidden="true">&#10003;</div>
-        <h1>Thank you for your order!</h1>
+        <h1>Thanks for your order!</h1>
         <p class="lede" style="margin:12px auto 24px">Order <b data-testid="order-number">${esc(id)}</b> is paid. Your sheets leave the warehouse within two working days.</p>
         <div class="row" style="justify-content:center"><a class="btn" href="#/inventory" data-testid="back-home">Back to patterns</a><a class="btn quiet" href="#/orders">See my orders</a></div>
       </div>`, "Thank you");
@@ -687,7 +689,7 @@
 
   function viewAbout() {
     show(`<h1>About Mosaic Market</h1>
-      <p class="lede">A practice shop for testing. It has the features of a classic demo store (personas, sorting, a cart, a three-step checkout) and five planted bugs for Tessella to find.</p>
+      <p class="lede">A practice shop for testing. It has the features of a classic demo store: personas, sorting, a cart and a three-step checkout.</p>
       <div class="card" style="max-width:720px"><h2>The personas</h2><dl class="info">
         ${ACCOUNTS.slice(2).map(([u, , what]) => `<dt>${u}</dt><dd>${what}</dd>`).join("")}</dl>
         <p class="per">anna and bob are the test suite's customers; their shop behaves normally.</p></div>`, "About");

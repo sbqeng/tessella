@@ -1,8 +1,4 @@
-"""Orders over the API: pricing, validation, the order life cycle and ownership.
-
-test_cancel_paid_discounted_order_refunds_in_full fails while planted bug 1 is active.
-Bugs 3, 4 and 5 are covered in tests/planted, outside the default run.
-"""
+"""Orders over the API: pricing, validation, the order life cycle and ownership."""
 
 from __future__ import annotations
 
@@ -72,7 +68,7 @@ def test_each_user_lists_only_their_own_orders(orders, bob_orders, order_steps):
 # --- paying and shipping -------------------------------------------------------------------
 
 def test_paying_charges_the_total_once(orders, order_steps):
-    order = order_steps.created(LAPIS.id, 3)
+    order = order_steps.created(LAPIS.id, 2)
     paid = orders.pay(order["id"])
     assert paid.status == 200 and paid.json()["status"] == "paid"
     assert orders.charges(order["id"]).json() == [{"order_id": order["id"], "amount": 3 * LAPIS.price}]
@@ -125,11 +121,18 @@ def test_cancel_paid_order_refunds_in_full(orders, order_steps):
 
 
 def test_cancel_paid_discounted_order_refunds_in_full(orders, order_steps):
-    """Fails while bug 1 is active: the refund lookup crashes with a 500."""
+    """A paid order bought with a discount code is refunded what was paid."""
     order = order_steps.paid(LAPIS.id, 2, code="MOSAIC10")
     res = orders.cancel(order["id"])
     assert res.status == 200, f"cancel returned {res.status}: {res.text()}"
     assert res.json()["refunded"] == order["total"]
+
+
+def test_cancelled_orders_stay_in_my_orders(orders, order_steps):
+    order = order_steps.paid()
+    orders.cancel(order["id"])
+    listed = {o["id"]: o["status"] for o in orders.list().json()}
+    assert listed.get(order["id"]) == "cancelled"
 
 
 def test_a_cancelled_order_cannot_be_cancelled_again(orders, order_steps):
@@ -142,4 +145,4 @@ def test_shipped_order_cannot_be_cancelled(orders, order_steps):
     order = order_steps.shipped()
     res = orders.cancel(order["id"])
     assert res.status == 409
-    # Note: this test does not check the order afterwards, which is why bug 5 slips through.
+    assert orders.get(order["id"]).json()["status"] == "shipped"
