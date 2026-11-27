@@ -1,8 +1,4 @@
-"""My orders: paying and cancelling from the browser.
-
-test_cancel_discounted_order fails while planted bug 1 is active: cancelling a paid,
-discounted order shows a red error toast (the server answers 500).
-"""
+"""My orders: paying and cancelling from the browser."""
 
 from __future__ import annotations
 
@@ -15,7 +11,7 @@ pytestmark = pytest.mark.ui
 
 
 def test_cancel_discounted_order(shopper, orders_page):
-    """Fails while planted bug 1 is active: the cancel request returns 500."""
+    """A paid order bought with a discount code can be cancelled from My orders."""
     shopper.sign_in()
     order_id = shopper.buy(MARBLE, MARBLE, code="TILE25")
     orders_page.open()

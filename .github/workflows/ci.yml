@@ -18,7 +18,7 @@ jobs:
       - run: pip install -e ".[all,dev]"
       - run: pytest -q
 
-  # Tessella on its own demo shop: the suite fails on purpose (planted bugs), a real local model
+  # Tessella on its own demo shop: a real local model
   # on this runner judges the failures, and the summary is posted on the pull request.
   demo-triage:
     if: github.event_name == 'pull_request'

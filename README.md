@@ -94,7 +94,7 @@ Real screens from the included demo shop, on a small local model.
 </tr>
 <tr>
 <td><img src="docs/media/terminal.png" alt="tessella triage output in a terminal"><br><b>Terminal.</b> One sentence on what the run means.</td>
-<td><img src="docs/media/shop.png" alt="Mosaic Market, the demo shop"><br><b>Demo shop.</b> Five planted bugs to practise on.</td>
+<td><img src="docs/media/shop.png" alt="Mosaic Market, the demo shop"><br><b>Demo shop.</b> A tile shop and its 95-test suite to practise on.</td>
 </tr>
 <tr>
 <td colspan="2" align="center"><img src="docs/media/kan-8.png" alt="A bug ticket Tessella filed in Jira after approval" width="560"><br><b>The filed ticket.</b> A real Jira ticket from the demo shop, every field written from evidence.</td>
@@ -254,9 +254,9 @@ flowchart LR
 
 | What was checked | Result |
 | --- | --- |
-| 🎯 Triage on the demo shop, local qwen3.5:4b on CPU | **12 of 12** correct (4 failures, 3 runs each, same answer every time); 4 of 4 again after the suite was rewritten |
+| 🎯 Triage on an earlier version of the demo shop's suite, local qwen3.5:4b on CPU | **12 of 12** correct (4 failures, 3 runs each, same answer every time). The current suite has not been scored yet |
 | 🎫 Filing to a real Jira Cloud project | 3 tickets filed; approving the same failure again links back instead of filing twice |
-| 🛠 Fixer agent on a real planted bug | Checked fix in 4 to 6 steps across two runs: the failing test passed 3 of 3 re-runs and the API suite gained no new failures |
+| 🛠 Fixer agent on a real product bug in the demo shop | Checked fix in 4 to 6 steps across two runs: the failing test passed 3 of 3 re-runs and the API suite gained no new failures |
 | 🧪 Tessella's own tests | About 300, run on every push; model calls are faked |
 
 These are small numbers on a demo target, a smoke test rather than an accuracy figure. The flaky verdict came from the re-run rule, not the model.
@@ -281,7 +281,7 @@ Public list prices checked on 8 November 2026. They change often, and these tool
 
 | Level | What |
 | --- | --- |
-| ✅ **Proven on real runs** | Triage on a local model · Jira filing and duplicate checks · dashboard, report and Board · fixer agent on a planted bug · Schemathesis imports · offline bundle install |
+| ✅ **Proven on real runs** | Triage on a local model · Jira filing and duplicate checks · dashboard, report and Board · fixer agent on a product bug · Schemathesis imports · offline bundle install |
 | 🧪 **Tested with simulated services** | PR comments on GitHub and GitLab · GitHub Issues filing · Loki and Elasticsearch logs · ZAP imports · team server on a GPU |
 | 🗓 **Planned** | Probe live replay · regression test export · automatic visual baselines |
 
@@ -580,7 +580,7 @@ model time; a cached reply makes no call, so it adds nothing to the audit log.
 `num_ctx` and `parallel`; without a GPU it stops at 9b (4b under 8 cores), because bigger
 models answer too slowly. `tessella models bench` times load, prompt and reply speed on a
 made-up failure. `tessella eval` then scores the reader on your own failures against a golden
-file (`examples/demo_shop/tessella.golden.yaml` is one): accuracy (an `unknown` counts as
+file (a YAML list of failures, each with `match`, `category` and optional `facts`): accuracy (an `unknown` counts as
 wrong), unknown rate, Brier score of the stated confidence, ticket field completeness, facts
 the diagnosis should mention, seconds per cluster and, with `--runs`, how often repeated runs
 agree. Repeat `--model` to compare models on the same evidence. Eval writes nothing to the
@@ -827,7 +827,7 @@ tessella/
 │   ├── queue/                FastAPI + HTMX review UI and its template
 │   └── report/               `tessella report`: the offline HTML dashboard, its template, and timevalue (net time saved)
 ├── tests/                    unit tests per stage, plus fixtures
-└── examples/demo_shop/       Mosaic Market: a tile shop with five planted bugs and its test suite
+└── examples/demo_shop/       Mosaic Market: a tile shop and its test suite
 ```
 
 </details>
@@ -936,20 +936,11 @@ blocked.
 <details>
 <summary><b>Try it on the demo shop</b></summary>
 
-`examples/demo_shop` is Mosaic Market, a small tile shop with test personas, a three-step checkout, a 95-test Playwright suite and five planted bugs, built to
-show Tessella end to end and to score it:
-
-| # | Planted bug | Kind | Caught by the suite? |
-|---|-------------|------|----------------------|
-| 1 | Cancelling a paid, discounted order crashes with a 500 | Product bug | Yes, by an API test and a UI test |
-| 2 | `test_login` clicks `#login`, but the button is now `#sign-in` | Test bug | Yes, the test fails |
-| 3 | Any signed-in user can read any order by ID | Security bug | No |
-| 4 | Paying one order twice in parallel charges twice | Race condition | No |
-| 5 | A rejected cancel of a shipped order cancels it anyway | State bug | No |
-
-Plus one flaky test (a 0.8 s budget on a service that takes 0 to 1.2 s). The suite writes a
-Allure report with a screenshot per UI test, a Playwright trace per UI test, and the
-shop writes a request log with tracebacks. Copy its `tessella.example.yaml` to `tessella.yaml` first.
+`examples/demo_shop` is Mosaic Market, a small tile shop with test personas, a three-step
+checkout and a 95-test Playwright suite (API and UI). The suite writes an Allure report with a
+screenshot per UI test and a Playwright trace per UI test, and the shop writes a request log
+with tracebacks: everything Tessella reads. Copy its `tessella.example.yaml` to
+`tessella.yaml` first.
 
 The short path, from the repository root with the venv active:
 
@@ -960,19 +951,15 @@ pip install -r requirements.txt && playwright install chromium
 # terminal 1: the shop, at http://127.0.0.1:8765 (sign in as anna / anna-pass)
 uvicorn shop.app:app --port 8765
 
-# terminal 2: see the bugs, run the suite, triage the results
-bash show_bugs.sh                        # reproduces bugs 1, 3, 4, 5 with curl
-bash run_suite.sh                        # 95 tests, 3 planted failures (4 when the flaky one trips)
-tessella triage --no-model --no-rerun    # 3 failures in 3 clusters, with screenshots
+# terminal 2: run the suite, then triage whatever failed
+bash run_suite.sh                        # 95 tests, about three minutes
+tessella triage --no-model --no-rerun    # the failures grouped into clusters, with screenshots
 tessella triage                          # re-runs and verdicts (needs a local model)
 tessella queue                           # review the drafts at http://localhost:8484
-tessella eval --golden tessella.golden.yaml --runs 3   # score the reader on these failures
 ```
 
-Start the shop with `DEMO_SHOP_FIXED=all` to switch the product bugs off; then only the
-test bug fails. The full step-by-step guide (clicking through bug 1 in the browser, the
-trace viewer, switching bugs, probing, starting over, troubleshooting) is in
-[examples/demo_shop/README.md](examples/demo_shop/README.md).
+The full step-by-step guide (the shop in the browser, the trace viewer, probing, starting
+over, troubleshooting) is in [examples/demo_shop/README.md](examples/demo_shop/README.md).
 
 </details>
 
@@ -1606,7 +1593,7 @@ Exactly how each part was tested. "Tested" means covered by the unit tests in `t
 | Network allowlist and egress report | Works, tested |
 | Decision memory: exact-signature recall | Works, tested |
 | Similarity recall and few-shot examples (embedder role) | Works, tested with a faked embedder; thresholds not yet tuned on real data |
-| `tessella eval`, `models recommend`, `models bench`, `export-dataset` | Work, tested. On the demo shop (6 Nov 2026), local qwen3.5:4b on CPU judged all 4 golden failures right on each of 3 runs (12 of 12): bug 1 from the API and the UI as product bugs, bug 2 as a test bug, the flaky test as flaky. Same answer every run, required ticket fields 100%, about 73 s per cluster. The flaky call came from the re-run rule (passed 2 of 3 re-runs), not the model. Four failures is a small set: treat this as a smoke test, not an accuracy figure |
+| `tessella eval`, `models recommend`, `models bench`, `export-dataset` | Work, tested. On an earlier version of the demo shop's suite (6 Nov 2026), local qwen3.5:4b on CPU judged all 4 golden failures right on each of 3 runs (12 of 12): a product bug seen from the API and the UI, a test bug and a flaky test. Same answer every run, required ticket fields 100%, about 73 s per cluster. The flaky call came from the re-run rule (passed 2 of 3 re-runs), not the model. Four failures is a small set: treat this as a smoke test, not an accuracy figure |
 | Verdict evidence rule, re-run and pre-flight heuristics | Works, tested |
 | Model gateway: roles, data policy, allowlist, approval, audit log | Works, tested |
 | Visual diff against a baseline; vision reading | Works, tested (vision needs a local vision model) |
@@ -1631,7 +1618,7 @@ Exactly how each part was tested. "Tested" means covered by the unit tests in `t
 | CI comment on the pull request (GitHub Actions) or merge request (GitLab CI), edited in place each run | Works, tested with faked GitHub and GitLab APIs; not yet run in a real pipeline |
 | Regression test export | Planned |
 | Automatic visual baselines from green runs | Planned |
-| Demo shop with five planted bugs, suite, reports and app log | Works; the benchmark target for v1 and v2 |
+| Demo shop, its suite, reports and app log | Works; the benchmark target for v1 and v2 |
 
 </details>
 
@@ -1671,11 +1658,11 @@ so it is treated as inside your network. Cloud providers work through LiteLLM.
 1. **Validate (3–4 weeks):** interviews with SDETs, QA leads and security; a smoke-test page;
    two concierge pilots on real failures.
 2. **v1 Triage (built; the partner gate is still open):** wire git diff, logs and pre-flight into the pipeline; Jira duplicate search;
-   verified test patches; CI mode with PR comments; triage scored against the demo shop (bugs 1
-   and 2, the flaky test: 12 of 12 with qwen3.5:4b, see What works today). Gate: three design
+   verified test patches; CI mode with PR comments; triage scored against an earlier version of the demo shop's suite (12 of 12 with qwen3.5:4b,
+   see What works today). Gate: three design
    partners using it.
 3. **v2 Probe (next):** flows from traces, replay with a second user and parallel sends, confirm and
-   shrink failing flows, regression test export. Gate: all planted bugs found.
+   shrink failing flows, regression test export. Gate: probe findings confirmed on a real system.
 4. **v3 Continuous:** triage and probe on every build, a release-readiness summary, a shared team
    queue, audit-ready reports, a fintech pack of invariants (balances, positions, order states).
 

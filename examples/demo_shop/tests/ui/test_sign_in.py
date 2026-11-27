@@ -1,8 +1,4 @@
-"""Signing in and out in the browser.
-
-test_login is the planted test bug (bug 2): it was written before the page objects and
-still clicks #login, but the button is now #sign-in. The shop works; the test is wrong.
-"""
+"""Signing in and out in the browser."""
 
 from __future__ import annotations
 
@@ -16,12 +12,12 @@ pytestmark = pytest.mark.ui
 
 
 def test_login(page: Page):
-    """Planted bug 2 (test bug): the button id changed from #login to #sign-in."""
+    """A customer signs in with the form and sees who they are signed in as."""
     page.goto("/")
     expect(page.locator("body[data-ready=true]")).to_be_attached()
     page.fill("#username", "anna")
     page.fill("#password", PASSWORDS["anna"])
-    page.click("#login", timeout=3000)
+    page.click("#sign-in", timeout=3000)
     expect(page.locator("#who")).to_have_text("Signed in as anna")
 
 

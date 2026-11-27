@@ -51,6 +51,13 @@ def test_search_filters_by_name_and_description(shopper):
     expect(inventory.tiles).to_have_count(1)
 
 
+def test_search_results_update_as_you_type(shopper):
+    inventory = shopper.sign_in()
+    inventory.search.fill("lapis")
+    inventory.page.wait_for_timeout(350)
+    assert inventory.tiles.count() == 1
+
+
 def test_search_with_no_match_offers_to_clear(shopper):
     inventory = shopper.sign_in()
     inventory.search.fill("velvet")

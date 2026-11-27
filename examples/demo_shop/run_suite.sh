@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Run the Mosaic Market suite and write the reports Tessella reads.
 #
-#   ./run_suite.sh                  all planted bugs active (the demo)
-#   DEMO_SHOP_FIXED=all ./run_suite.sh   bugs fixed; only the test bug and the flaky test can fail
+#   ./run_suite.sh                  the whole suite
+#   ./run_suite.sh tests/api        any pytest arguments, passed through
 #
 # Writes:
 #   reports/allure-report/    generated Allure report, with history/trend carried across runs
@@ -32,8 +32,8 @@ echo
 if [ "$status" -eq 0 ]; then
   echo "All tests passed."
 else
-  echo "Some tests failed (expected while the planted bugs are active)."
+  echo "Some tests failed."
   echo "Next: tessella triage    # reads reports/allure-report, see tessella.yaml"
 fi
-# Failing tests are the point of this demo, so the script itself does not fail.
+# The reports are what matter here, so the script itself does not fail.
 exit 0

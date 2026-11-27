@@ -1,4 +1,4 @@
-"""Catalogue API. test_recommendations_respond_quickly is flaky on purpose."""
+"""Catalogue API: health, products and recommendations."""
 
 from __future__ import annotations
 
@@ -39,11 +39,7 @@ def test_recommendations_are_three_known_products(catalogue):
 
 
 def test_recommendations_respond_quickly(catalogue):
-    """Flaky: the recommendations service takes 0 to 1.2 s, and this budget is 0.8 s.
-
-    It passes about two runs in three, so Tessella's re-run step should call it flaky,
-    not a product bug.
-    """
+    """Recommendations answer within the page's 0.8 s budget."""
     start = time.perf_counter()
     res = catalogue.recommendations()
     elapsed = time.perf_counter() - start
