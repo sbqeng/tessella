@@ -40,7 +40,7 @@ A nightly run fails 40 tests, and someone loses a morning working out which are 
 <tr>
 <td width="33%" valign="top">
 
-### 🔍 Triage
+### 🔍 Triage issues
 Groups failures, re-runs them, reads logs, code changes and screenshots, then calls each one a product bug, test bug, environment problem, test data problem or flaky test.
 
 </td>
